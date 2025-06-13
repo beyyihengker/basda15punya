@@ -1,0 +1,158 @@
+# =======================
+# FILE: function_baju.py
+# =======================
+import psycopg2
+
+conn_args = {
+    'host': 'localhost',
+    'dbname': 'db_penyewaan_baju',
+    'user': 'postgres',
+    'password': '25',
+    'port': 5432
+}
+
+def login_user(username, password):
+    conn = psycopg2.connect(**conn_args)
+    cur = conn.cursor()
+    cur.execute("SELECT ID_user, Password FROM Users WHERE username = %s", (username,))
+    data = cur.fetchone()
+    conn.close()
+    if data and password == data[1]:
+        return True, data[0]
+    return False, None
+
+def login_admin(username, password):
+    conn = psycopg2.connect(**conn_args)
+    cur = conn.cursor()
+    cur.execute("SELECT ID_user, Password FROM Users WHERE username = %s AND Role = 'admin'", (username,))
+    data = cur.fetchone()
+    conn.close()
+    if data and password == data[1]:
+        return True, data[0]
+    return False, None
+
+def login_owner(username, password):
+    conn = psycopg2.connect(**conn_args)
+    cur = conn.cursor()
+    cur.execute("SELECT ID_user, Password FROM Users WHERE username = %s AND Role = 'owner'", (username,))
+    data = cur.fetchone()
+    conn.close()
+    if data and password == data[1]:
+        return True, data[0]
+    return False, None
+
+def baju_tersedia(include_zero=False):
+    conn = psycopg2.connect(**conn_args)
+    cur = conn.cursor()
+    query = """
+        SELECT B.ID_Baju, B.Nama_baju, U.Nama_Ukuran_Baju, W.Nama_Warna_Baju, B.Harga, B.Stok
+        FROM Baju B
+        JOIN Ukuran_Baju U ON B.ID_Ukuran_Baju = U.ID_Ukuran_Baju
+        JOIN Warna_Baju W ON B.ID_Warna_Baju = W.ID_Warna_Baju
+    """
+    if not include_zero:
+        query += "WHERE B.Stok > 0"
+    query += " ORDER BY B.ID_Baju"
+    cur.execute(query)
+    hasil = cur.fetchall()
+    conn.close()
+    return hasil
+
+def daftar_metode_pembayaran():
+    conn = psycopg2.connect(**conn_args)
+    cur = conn.cursor()
+    cur.execute("SELECT ID_Metode_Pembayaran, Nama_Metode_Pembayaran FROM Metode_Pembayaran")
+    hasil = cur.fetchall()
+    conn.close()
+    return hasil
+
+def buat_penyewaan(id_user, id_baju, lama_sewa, id_metode):
+    try:
+        conn = psycopg2.connect(**conn_args)
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO Penyewaan (Lama_Sewa, Status_Pembayaran, Tanggal_Sewa, ID_users, ID_Metode_Pembayaran)
+            VALUES (%s, 'Belum', CURRENT_DATE, %s, %s) RETURNING ID_Sewa
+        """, (lama_sewa, id_user, id_metode))
+        id_sewa = cur.fetchone()[0]
+
+        cur.execute("SELECT Harga FROM Baju WHERE ID_Baju = %s", (id_baju,))
+        harga = cur.fetchone()[0]
+
+        cur.execute("""
+            INSERT INTO Detail_Penyewaan (ID_Penyewa, ID_Baju, Subtotal_bayar, Is_kembali)
+            VALUES (%s, %s, %s, 'Tidak Kembali')
+        """, (id_sewa, id_baju, harga))
+
+        cur.execute("UPDATE Baju SET Stok = Stok - 1 WHERE ID_Baju = %s", (id_baju,))
+
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        print("Error:", e)
+        return False
+
+def riwayat_penyewaan(id_user):
+    conn = psycopg2.connect(**conn_args)
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT TO_CHAR(P.Tanggal_Sewa, 'DD-MM-YYYY'), B.Nama_Baju, D.Subtotal_bayar, P.Status_Pembayaran
+        FROM Penyewaan P
+        JOIN Detail_Penyewaan D ON P.ID_Sewa = D.ID_Penyewa
+        JOIN Baju B ON D.ID_Baju = B.ID_Baju
+        WHERE P.ID_users = %s
+        ORDER BY P.Tanggal_Sewa DESC
+    """, (id_user,))
+    hasil = cur.fetchall()
+    conn.close()
+    return hasil
+
+def kirim_feedback(id_user, isi):
+    conn = psycopg2.connect(**conn_args)
+    cur = conn.cursor()
+    cur.execute("INSERT INTO Laporan (ID_user, Total_Pendapatan, Jumlah_Baju_Tersewa, Jumlah_Baju_Rusak, Tanggal_Lapor) VALUES (%s, 0, 0, 0, CURRENT_DATE)", (id_user,))
+    conn.commit()
+    conn.close()
+    return True
+
+def semua_penyewaan():
+    conn = psycopg2.connect(**conn_args)
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT P.ID_Sewa, TO_CHAR(P.Tanggal_Sewa, 'DD-MM-YYYY'), U.username, B.Nama_Baju, P.Status_Pembayaran
+        FROM Penyewaan P
+        JOIN Users U ON P.ID_users = U.ID_user
+        JOIN Detail_Penyewaan D ON P.ID_Sewa = D.ID_Penyewa
+        JOIN Baju B ON D.ID_Baju = B.ID_Baju
+        ORDER BY P.Tanggal_Sewa DESC
+    """)
+    hasil = cur.fetchall()
+    conn.close()
+    return hasil
+
+def laporan_pendapatan():
+    conn = psycopg2.connect(**conn_args)
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT U.username, L.Total_Pendapatan, L.Jumlah_Baju_Tersewa, L.Jumlah_Baju_Rusak, TO_CHAR(L.Tanggal_Lapor, 'DD-MM-YYYY')
+        FROM Laporan L
+        JOIN Users U ON L.ID_user = U.ID_user
+        ORDER BY L.Tanggal_Lapor DESC
+    """)
+    hasil = cur.fetchall()
+    conn.close()
+    return hasil
+
+def feedbacks():
+    conn = psycopg2.connect(**conn_args)
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT TO_CHAR(L.Tanggal_Lapor, 'DD-MM-YYYY'), U.username, 'Isi feedback via laporan'
+        FROM Laporan L
+        JOIN Users U ON L.ID_user = U.ID_user
+        ORDER BY L.Tanggal_Lapor DESC
+    """)
+    hasil = cur.fetchall()
+    conn.close()
+    return hasil
