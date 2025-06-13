@@ -1,0 +1,152 @@
+# =======================
+# FILE: main_baju.py (versi akhir)
+# =======================
+import os
+import function_baju as fn
+from tabulate import tabulate
+
+def clear():
+    os.system("cls" if os.name == "nt" else "clear")
+
+def main():
+    while True:
+        clear()
+        print("="*50)
+        print("SISTEM INFORMASI PENYEWAAN BAJU".center(50))
+        print("="*50)
+        print("[1] Login sebagai Customer")
+        print("[2] Login sebagai Admin")
+        print("[3] Login sebagai Owner")
+        print("[4] Keluar")
+        opsi = input("Pilih opsi: ")
+        if opsi == "1": login_user()
+        elif opsi == "2": login_admin()
+        elif opsi == "3": login_owner()
+        elif opsi == "4":
+            print("Terima kasih telah menggunakan layanan kami.")
+            break
+        else:
+            input("Pilihan tidak valid. Tekan Enter untuk lanjut...")
+
+def login_user():
+    clear()
+    print("Login Customer")
+    user = input("Username: ")
+    pw = input("Password: ")
+    valid, id_user = fn.login_user(user, pw)
+    if valid:
+        menu_user(id_user)
+    else:
+        input("Login gagal. Tekan Enter untuk kembali...")
+
+def login_admin():
+    clear()
+    print("Login Admin")
+    user = input("Username: ")
+    pw = input("Password: ")
+    valid, id_admin = fn.login_admin(user, pw)
+    if valid:
+        menu_admin(id_admin)
+    else:
+        input("Login gagal. Tekan Enter untuk kembali...")
+
+def login_owner():
+    clear()
+    print("Login Owner")
+    user = input("Username: ")
+    pw = input("Password: ")
+    valid, id_owner = fn.login_owner(user, pw)
+    if valid:
+        menu_owner(id_owner)
+    else:
+        input("Login gagal. Tekan Enter untuk kembali...")
+
+def menu_user(id_user):
+    while True:
+        clear()
+        print("MENU CUSTOMER")
+        print("[1] Tentang Penyewaan Baju")
+        print("[2] Lihat & Sewa Baju")
+        print("[3] Riwayat Penyewaan")
+        print("[4] Kirim Feedback")
+        print("[5] Logout")
+        opsi = input("Pilih opsi: ")
+        if opsi == "1":
+            print("""
+Kami menyediakan berbagai macam baju pesta, adat, kebaya, dan lainnya.
+Tersedia berbagai ukuran dan warna dengan harga terjangkau.
+""")
+            input("Tekan Enter untuk kembali...")
+        elif opsi == "2":
+            daftar = fn.baju_tersedia()
+            print(tabulate(daftar, headers=["ID", "Nama", "Ukuran", "Warna", "Harga", "Stok"], tablefmt="fancy_grid"))
+            id_baju = input("Masukkan ID baju yang ingin disewa: ")
+            lama = input("Lama sewa (misal: 3 hari): ")
+            metode = fn.daftar_metode_pembayaran()
+            print(tabulate(metode, headers=["ID", "Metode"], tablefmt="grid"))
+            id_metode = input("Pilih ID metode pembayaran: ")
+            berhasil = fn.buat_penyewaan(id_user, id_baju, lama, id_metode)
+            if berhasil:
+                print("Penyewaan berhasil dilakukan!")
+            else:
+                print("Gagal melakukan penyewaan.")
+            input("Tekan Enter untuk kembali...")
+        elif opsi == "3":
+            data = fn.riwayat_penyewaan(id_user)
+            print(tabulate(data, headers=["Tanggal", "Baju", "Bayar", "Status"], tablefmt="grid"))
+            input("Tekan Enter untuk kembali...")
+        elif opsi == "4":
+            fb = input("Tulis feedback: ")
+            if fb:
+                fn.kirim_feedback(id_user, fb)
+                print("Feedback tersimpan.")
+            input("Tekan Enter untuk kembali...")
+        elif opsi == "5":
+            break
+        else:
+            input("Pilihan tidak valid. Tekan Enter untuk lanjut...")
+
+def menu_admin(id_admin):
+    while True:
+        clear()
+        print("MENU ADMIN")
+        print("[1] Lihat Semua Penyewaan")
+        print("[2] Cek Stok Baju")
+        print("[3] Logout")
+        opsi = input("Pilih opsi: ")
+        if opsi == "1":
+            data = fn.semua_penyewaan()
+            print(tabulate(data, headers=["ID Sewa", "Tanggal", "User", "Baju", "Status"], tablefmt="grid"))
+            input("Tekan Enter untuk kembali...")
+        elif opsi == "2":
+            stok = fn.baju_tersedia(include_zero=True)
+            print(tabulate(stok, headers=["ID", "Nama", "Ukuran", "Warna", "Harga", "Stok"], tablefmt="fancy_grid"))
+            input("Tekan Enter untuk kembali...")
+        elif opsi == "3":
+            break
+        else:
+            input("Pilihan tidak valid. Tekan Enter untuk lanjut...")
+
+def menu_owner(id_owner):
+    while True:
+        clear()
+        print("MENU OWNER")
+        print("[1] Lihat Laporan Pendapatan")
+        print("[2] Lihat Feedback User")
+        print("[3] Logout")
+        opsi = input("Pilih opsi: ")
+        if opsi == "1":
+            data = fn.laporan_pendapatan()
+            print(tabulate(data, headers=["User", "Pendapatan", "Tersewa", "Rusak", "Tanggal"], tablefmt="grid"))
+            input("Tekan Enter untuk kembali...")
+        elif opsi == "2":
+            data = fn.feedbacks()
+            print(tabulate(data, headers=["Tanggal", "User", "Feedback"], tablefmt="grid"))
+            input("Tekan Enter untuk kembali...")
+        elif opsi == "3":
+            break
+        else:
+            input("Pilihan tidak valid. Tekan Enter untuk lanjut...")
+
+if __name__ == '__main__':
+    main()
